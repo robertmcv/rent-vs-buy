@@ -14,9 +14,15 @@ import {
 
 type Point = {
   year: number;
-  rentCum: number; // cumulative rent paid
-  buyCashCum: number; // cumulative buy cash outflow (down + mortgage + tax + maint)
-  equity: number; // estimated equity if sold at end of that year (after selling costs)
+
+  // Rent side
+  rentPaidCum: number;
+  renterPortfolio: number;
+  rentNetCost: number; // rentPaidCum - renterPortfolio
+
+  // Buy side
+  buyCashCum: number; // down + mortgage + tax + maint
+  equity: number; // value after selling costs - remaining mortgage
   netBuyCost: number; // buyCashCum - equity
 };
 
@@ -44,33 +50,34 @@ export default function Home() {
   const [homeGrowthPct, setHomeGrowthPct] = useState(3);
   const [sellingCostPct, setSellingCostPct] = useState(5);
 
-  // Selected point on chart (click to lock)
-  const [selectedYear, setSelectedYear] = useState<number>(Math.min(5, years));
+  // NEW: Investment opportunity cost
+  const [investReturnPct, setInvestReturnPct] = useState(6);
 
-  // Keep selectedYear in range if years changes
-  if (selectedYear > years) {
-    // This runs during render; safe enough for this simple app, but we can also move it into useEffect if you prefer.
-    setSelectedYear(years);
-  }
-  if (selectedYear < 1 && years >= 1) {
-    setSelectedYear(1);
-  }
+  // Selected year on chart
+  const [selectedYear, setSelectedYear] = useState<number>(Math.min(5, years));
+  if (selectedYear > years) setSelectedYear(years);
+  if (selectedYear < 1 && years >= 1) setSelectedYear(1);
 
   const results = useMemo(() => {
     const yMax = Math.max(1, Math.min(50, Math.floor(Number(years) || 1)));
 
     const rentGrowth = (Number(rentGrowthPct) || 0) / 100;
     const homeGrowth = (Number(homeGrowthPct) || 0) / 100;
-    const rate = (Number(mortgageRatePct) || 0) / 100;
+
+    const mortgageRate = (Number(mortgageRatePct) || 0) / 100;
     const propTax = (Number(propertyTaxPct) || 0) / 100;
     const maint = (Number(maintenancePct) || 0) / 100;
     const sellCost = (Number(sellingCostPct) || 0) / 100;
 
-    const downPayment = (Number(downPct) || 0) / 100 * (Number(homePrice) || 0);
-    const loan = Math.max(0, (Number(homePrice) || 0) - downPayment);
+    const investReturn = (Number(investReturnPct) || 0) / 100;
+    const investMonthly = investReturn / 12;
+
+    const price = Number(homePrice) || 0;
+    const downPayment = ((Number(downPct) || 0) / 100) * price;
+    const loan = Math.max(0, price - downPayment);
 
     // Monthly mortgage payment (standard fixed-rate formula)
-    const r = rate / 12;
+    const r = mortgageRate / 12;
     const n = Math.max(1, (Number(amortYears) || 1) * 12);
 
     const monthlyMortgage =
@@ -80,67 +87,96 @@ export default function Home() {
           ? loan / n
           : (loan * r) / (1 - Math.pow(1 + r, -n));
 
-    // Simulate year by year
-    let rentCum = 0;
-    let buyCashCum = downPayment; // upfront outflow
+    // --- Simulation ---
+    let value = price;
     let remainingBalance = loan;
-    let value = Number(homePrice) || 0;
+
+    // Buy side cumulative cash outflow
+    let buyCashCum = downPayment;
+
+    // Rent side
+    let rentPaidCum = 0;
+
+    // NEW: renter invests the down payment instead of paying it
+    let renterPortfolio = downPayment;
 
     const data: Point[] = [];
     let breakEvenYear: number | null = null;
 
+    // We simulate month-by-month for investing realism
     for (let y = 1; y <= yMax; y++) {
-      // Rent
-      const annualRent = (Number(rentMonthly) || 0) * 12 * Math.pow(1 + rentGrowth, y - 1);
-      rentCum += annualRent;
+      let rentPaidThisYear = 0;
+      let buyCashThisYear = 0;
 
-      // Buy cash outflows (very simplified but useful)
+      for (let m = 1; m <= 12; m++) {
+        // Rent grows annually in steps (simple and understandable)
+        const rentThisMonth = (Number(rentMonthly) || 0) * Math.pow(1 + rentGrowth, y - 1);
+
+        // Owner monthly costs
+        const propTaxThisMonth = (value * propTax) / 12;
+        const maintThisMonth = (value * maint) / 12;
+        const buyThisMonth = monthlyMortgage + propTaxThisMonth + maintThisMonth;
+
+        rentPaidThisYear += rentThisMonth;
+        buyCashThisYear += buyThisMonth;
+
+        // Opportunity cost investing:
+        // If owning costs more than renting, renter invests the difference.
+        // If renting costs more, renter withdraws (negative contribution).
+        const investContribution = buyThisMonth - rentThisMonth;
+
+        // Grow renter portfolio monthly, then add contribution
+        renterPortfolio = renterPortfolio * (1 + investMonthly) + investContribution;
+      }
+
+      // update cumulative totals
+      rentPaidCum += rentPaidThisYear;
+      buyCashCum += buyCashThisYear;
+
+      // Update remaining mortgage balance (annual approximation; simple + stable)
       const annualMortgage = monthlyMortgage * 12;
-      const annualPropTax = value * propTax;
-      const annualMaint = value * maint;
-
-      buyCashCum += annualMortgage + annualPropTax + annualMaint;
-
-      // Approx remaining balance (annual approximation)
-      // Interest approx on beginning-of-year balance; principal = payment - interest.
-      const annualInterest = remainingBalance * rate;
+      const annualInterest = remainingBalance * mortgageRate;
       const principalPaid = Math.max(0, annualMortgage - annualInterest);
       remainingBalance = Math.max(0, remainingBalance - principalPaid);
 
       // End-of-year home value
       value *= 1 + homeGrowth;
 
-      // Equity if sold end of this year (after selling costs, after paying mortgage balance)
+      // Equity if sold end of year (after selling costs & paying off remaining mortgage)
       const netSaleProceeds = value * (1 - sellCost) - remainingBalance;
       const equity = Math.max(0, netSaleProceeds);
 
+      // Net costs
+      const rentNetCost = rentPaidCum - renterPortfolio;
       const netBuyCost = buyCashCum - equity;
 
       data.push({
         year: y,
-        rentCum: Math.round(rentCum),
+        rentPaidCum: Math.round(rentPaidCum),
+        renterPortfolio: Math.round(renterPortfolio),
+        rentNetCost: Math.round(rentNetCost),
+
         buyCashCum: Math.round(buyCashCum),
         equity: Math.round(equity),
         netBuyCost: Math.round(netBuyCost),
       });
 
-      if (breakEvenYear === null && netBuyCost < rentCum) {
+      // Breakeven: first year where buy net cost < rent net cost
+      if (breakEvenYear === null && netBuyCost < rentNetCost) {
         breakEvenYear = y;
       }
     }
 
     const last = data[data.length - 1];
-    const diff = last ? last.rentCum - last.netBuyCost : 0;
+    const diff = last ? last.rentNetCost - last.netBuyCost : 0;
 
     const verdict =
       diff > 0
-        ? `Buying appears cheaper by $${money(diff)} over ${yMax} years (net of equity).`
-        : `Renting appears cheaper by $${money(Math.abs(diff))} over ${yMax} years (net of equity).`;
+        ? `In this model (including investing), buying appears cheaper by $${money(diff)} over ${yMax} years.`
+        : `In this model (including investing), renting appears cheaper by $${money(Math.abs(diff))} over ${yMax} years.`;
 
     const breakevenText =
-      breakEvenYear !== null
-        ? `Estimated breakeven: year ${breakEvenYear}.`
-        : `No breakeven within ${yMax} years.`;
+      breakEvenYear !== null ? `Estimated breakeven (net): year ${breakEvenYear}.` : `No breakeven within ${yMax} years.`;
 
     return {
       data,
@@ -162,14 +198,12 @@ export default function Home() {
     maintenancePct,
     homeGrowthPct,
     sellingCostPct,
+    investReturnPct,
   ]);
 
-  const selected = results.data.find((p) => p.year === selectedYear) ?? results.data[results.data.length - 1];
+  const selected =
+    results.data.find((p) => p.year === selectedYear) ?? results.data[results.data.length - 1];
 
-  const final = results.data[results.data.length - 1];
-  const finalDiff = final ? final.rentCum - final.netBuyCost : 0;
-
-  // Chart click handler: lock selected year
   const handleChartClick = (e: any) => {
     const yr = Number(e?.activeLabel);
     if (!Number.isNaN(yr) && yr >= 1 && yr <= (results.data.at(-1)?.year ?? 1)) {
@@ -177,18 +211,17 @@ export default function Home() {
     }
   };
 
-  // Custom tooltip (still useful on hover)
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (!active || !payload?.length) return null;
-    const yr = label;
-    const rentVal = payload.find((p: any) => p.dataKey === "rentCum")?.value ?? 0;
+
+    const rentVal = payload.find((p: any) => p.dataKey === "rentNetCost")?.value ?? 0;
     const buyVal = payload.find((p: any) => p.dataKey === "netBuyCost")?.value ?? 0;
 
     return (
       <div className="rounded-xl border bg-white px-4 py-3 shadow-sm">
-        <div className="text-sm font-semibold mb-1">Year {yr}</div>
+        <div className="text-sm font-semibold mb-1">Year {label}</div>
         <div className="text-sm">
-          <span className="font-medium">Rent:</span> ${money(rentVal)}
+          <span className="font-medium">Rent (net):</span> ${money(rentVal)}
         </div>
         <div className="text-sm">
           <span className="font-medium">Buy (net):</span> ${money(buyVal)}
@@ -198,7 +231,6 @@ export default function Home() {
     );
   };
 
-  // Make dots clickable by setting selectedYear via click on active point too
   const ClickableDot = (props: any) => {
     const { cx, cy, payload } = props;
     if (cx == null || cy == null) return null;
@@ -218,6 +250,9 @@ export default function Home() {
     );
   };
 
+  const final = results.data[results.data.length - 1];
+  const finalDiff = final ? final.rentNetCost - final.netBuyCost : 0;
+
   return (
     <main className="min-h-screen bg-gradient-to-b from-zinc-50 to-white p-6">
       <div className="mx-auto max-w-5xl space-y-6">
@@ -227,15 +262,13 @@ export default function Home() {
             <div>
               <h1 className="text-3xl font-bold tracking-tight">Rent vs Buy Calculator</h1>
               <p className="text-zinc-600 mt-1">
-                Click a point on the chart to see cumulative totals and the breakeven year.
+                Now includes <span className="font-medium">investment opportunity cost</span> for renters.
               </p>
             </div>
             <div className="text-sm text-zinc-600">
-              <span className="font-medium text-zinc-900">Mortgage (est):</span>{" "}
-              ${money(results.monthlyMortgage)}/mo
+              <span className="font-medium text-zinc-900">Mortgage (est):</span> ${money(results.monthlyMortgage)}/mo
               <span className="mx-2 text-zinc-300">|</span>
-              <span className="font-medium text-zinc-900">Down payment:</span>{" "}
-              ${money(results.downPayment)}
+              <span className="font-medium text-zinc-900">Down payment:</span> ${money(results.downPayment)}
             </div>
           </div>
         </div>
@@ -250,8 +283,8 @@ export default function Home() {
               <Field label="Years staying" value={years} onChange={setYears} />
               <Field label="Monthly rent ($)" value={rentMonthly} onChange={setRentMonthly} />
               <Field label="Rent increase (%/yr)" value={rentGrowthPct} onChange={setRentGrowthPct} step={0.1} />
-              <Field label="Home price ($)" value={homePrice} onChange={setHomePrice} />
 
+              <Field label="Home price ($)" value={homePrice} onChange={setHomePrice} />
               <Field label="Down payment (%)" value={downPct} onChange={setDownPct} step={0.1} />
               <Field label="Mortgage rate (%/yr)" value={mortgageRatePct} onChange={setMortgageRatePct} step={0.1} />
               <Field label="Amortization (years)" value={amortYears} onChange={setAmortYears} />
@@ -261,15 +294,18 @@ export default function Home() {
               <Field label="Home growth (%/yr)" value={homeGrowthPct} onChange={setHomeGrowthPct} step={0.1} />
 
               <Field label="Selling costs (% of sale)" value={sellingCostPct} onChange={setSellingCostPct} step={0.1} />
+
+              {/* NEW */}
+              <Field label="Investment return (%/yr)" value={investReturnPct} onChange={setInvestReturnPct} step={0.1} />
             </div>
 
             <p className="text-xs text-zinc-500 mt-4">
-              Notes: Buy line is <span className="font-medium">net cost</span> = cash outflows − estimated equity (after selling costs).
-              This is a simplified model, not financial advice.
+              Rent net cost = rent paid − renter investment portfolio (starts with the down payment, plus/minus the monthly cost difference).
+              Buy net cost = buy cash outflows − equity (after selling costs).
             </p>
           </div>
 
-          {/* Verdict card */}
+          {/* Verdict */}
           <div className="rounded-3xl border bg-white shadow-sm p-6">
             <h2 className="text-xl font-semibold">Verdict</h2>
             <p className="mt-2 text-lg font-medium leading-relaxed">{results.verdict}</p>
@@ -277,8 +313,8 @@ export default function Home() {
 
             <div className="mt-5 rounded-2xl bg-zinc-50 p-4 space-y-2">
               <div className="text-sm">
-                <span className="text-zinc-600">Final (year {results.data.at(-1)?.year ?? years}) rent paid:</span>{" "}
-                <span className="font-semibold">${money(final?.rentCum ?? 0)}</span>
+                <span className="text-zinc-600">Final rent net cost:</span>{" "}
+                <span className="font-semibold">${money(final?.rentNetCost ?? 0)}</span>
               </div>
               <div className="text-sm">
                 <span className="text-zinc-600">Final buy net cost:</span>{" "}
@@ -288,15 +324,13 @@ export default function Home() {
                 <span className="text-zinc-600">Difference (rent − buy):</span>{" "}
                 <span className="font-semibold">
                   ${money(Math.abs(finalDiff))}{" "}
-                  <span className="text-zinc-600 font-normal">
-                    {finalDiff > 0 ? "(buy wins)" : "(rent wins)"}
-                  </span>
+                  <span className="text-zinc-600 font-normal">{finalDiff > 0 ? "(buy wins)" : "(rent wins)"}</span>
                 </span>
               </div>
             </div>
 
             <div className="mt-5 text-xs text-zinc-500">
-              Tip: Try changing mortgage rate and years staying — that’s where outcomes usually flip.
+              Tip: change “Investment return” and “Home growth” — those two swing results a lot.
             </div>
           </div>
         </div>
@@ -305,9 +339,9 @@ export default function Home() {
         <div className="rounded-3xl border bg-white shadow-sm p-6">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <h2 className="text-xl font-semibold">Cumulative cost over time</h2>
+              <h2 className="text-xl font-semibold">Net cumulative cost over time</h2>
               <p className="text-sm text-zinc-600 mt-1">
-                Click the chart to lock a year. Rent is <span className="font-medium text-red-600">red</span>, buy (net) is{" "}
+                Click the chart to lock a year. Rent (net) is <span className="font-medium text-red-600">red</span>, buy (net) is{" "}
                 <span className="font-medium text-blue-600">blue</span>.
               </p>
             </div>
@@ -325,11 +359,7 @@ export default function Home() {
               <LineChart data={results.data} onClick={handleChartClick} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="4 4" />
                 <XAxis dataKey="year" tickLine={false} axisLine={false} />
-                <YAxis
-                  tickLine={false}
-                  axisLine={false}
-                  tickFormatter={(v) => `$${Math.round(v / 1000)}k`}
-                />
+                <YAxis tickLine={false} axisLine={false} tickFormatter={(v) => `$${Math.round(v / 1000)}k`} />
                 <Tooltip content={<CustomTooltip />} />
 
                 {results.breakEvenYear !== null && (
@@ -346,11 +376,11 @@ export default function Home() {
                   />
                 )}
 
-                {/* Rent line (red) */}
+                {/* Rent net line (red) */}
                 <Line
                   type="monotone"
-                  dataKey="rentCum"
-                  name="Rent (cumulative)"
+                  dataKey="rentNetCost"
+                  name="Rent (net)"
                   stroke="#dc2626"
                   strokeWidth={3}
                   dot={<ClickableDot />}
@@ -361,7 +391,7 @@ export default function Home() {
                 <Line
                   type="monotone"
                   dataKey="netBuyCost"
-                  name="Buy (net cost)"
+                  name="Buy (net)"
                   stroke="#2563eb"
                   strokeWidth={3}
                   dot={<ClickableDot />}
@@ -372,33 +402,34 @@ export default function Home() {
           </div>
 
           {/* Click details */}
-          <div className="mt-6 grid grid-cols-1 md:grid-cols-5 gap-4">
+          <div className="mt-6 grid grid-cols-1 md:grid-cols-6 gap-4">
             <Stat title={`Year ${selected?.year ?? years}`} value="Selected point" subtle />
 
-            <Stat title="Rent paid (cum)" value={`$${money(selected?.rentCum ?? 0)}`} />
+            <Stat title="Rent paid (cum)" value={`$${money(selected?.rentPaidCum ?? 0)}`} />
+            <Stat title="Renter portfolio" value={`$${money(selected?.renterPortfolio ?? 0)}`} />
+            <Stat title="Rent net cost" value={`$${money(selected?.rentNetCost ?? 0)}`} />
+
             <Stat title="Buy cash outflow (cum)" value={`$${money(selected?.buyCashCum ?? 0)}`} />
             <Stat title="Equity (est)" value={`$${money(selected?.equity ?? 0)}`} />
             <Stat title="Buy net cost" value={`$${money(selected?.netBuyCost ?? 0)}`} />
 
-            <div className="md:col-span-5 rounded-2xl bg-zinc-50 p-4 text-sm text-zinc-700">
+            <div className="md:col-span-6 rounded-2xl bg-zinc-50 p-4 text-sm text-zinc-700">
               <span className="font-semibold">At year {selected?.year ?? years}:</span>{" "}
-              Rent − Buy(net) ={" "}
+              Rent(net) − Buy(net) ={" "}
               <span className="font-semibold">
-                ${money(Math.abs((selected?.rentCum ?? 0) - (selected?.netBuyCost ?? 0)))}
+                ${money(Math.abs((selected?.rentNetCost ?? 0) - (selected?.netBuyCost ?? 0)))}
               </span>{" "}
               <span className="text-zinc-600">
-                {((selected?.rentCum ?? 0) - (selected?.netBuyCost ?? 0)) > 0 ? "(buy wins by that year)" : "(rent wins by that year)"}
+                {((selected?.rentNetCost ?? 0) - (selected?.netBuyCost ?? 0)) > 0 ? "(buy wins by that year)" : "(rent wins by that year)"}
               </span>
               <div className="text-xs text-zinc-500 mt-1">
-                Buy(net) = down payment + mortgage + property tax + maintenance − (home value after growth − selling costs − remaining mortgage).
+                Renter portfolio starts with the down payment and grows at the investment return, plus/minus the monthly cost difference.
               </div>
             </div>
           </div>
         </div>
 
-        <p className="text-xs text-zinc-500 text-center pb-2">
-          Educational estimates only. Small changes in assumptions can flip results.
-        </p>
+        <p className="text-xs text-zinc-500 text-center pb-2">Educational estimates only. Small changes in assumptions can flip results.</p>
       </div>
     </main>
   );
