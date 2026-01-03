@@ -50,7 +50,7 @@ export default function Home() {
   const [homeGrowthPct, setHomeGrowthPct] = useState(3);
   const [sellingCostPct, setSellingCostPct] = useState(5);
 
-  // NEW: Investment opportunity cost
+  // Investment opportunity cost
   const [investReturnPct, setInvestReturnPct] = useState(6);
 
   // Selected year on chart
@@ -84,8 +84,8 @@ export default function Home() {
       loan === 0
         ? 0
         : r === 0
-          ? loan / n
-          : (loan * r) / (1 - Math.pow(1 + r, -n));
+        ? loan / n
+        : (loan * r) / (1 - Math.pow(1 + r, -n));
 
     // --- Simulation ---
     let value = price;
@@ -97,7 +97,7 @@ export default function Home() {
     // Rent side
     let rentPaidCum = 0;
 
-    // NEW: renter invests the down payment instead of paying it
+    // Renter invests the down payment instead of paying it
     let renterPortfolio = downPayment;
 
     const data: Point[] = [];
@@ -109,8 +109,9 @@ export default function Home() {
       let buyCashThisYear = 0;
 
       for (let m = 1; m <= 12; m++) {
-        // Rent grows annually in steps (simple and understandable)
-        const rentThisMonth = (Number(rentMonthly) || 0) * Math.pow(1 + rentGrowth, y - 1);
+        // Rent grows annually in steps
+        const rentThisMonth =
+          (Number(rentMonthly) || 0) * Math.pow(1 + rentGrowth, y - 1);
 
         // Owner monthly costs
         const propTaxThisMonth = (value * propTax) / 12;
@@ -133,7 +134,7 @@ export default function Home() {
       rentPaidCum += rentPaidThisYear;
       buyCashCum += buyCashThisYear;
 
-      // Update remaining mortgage balance (annual approximation; simple + stable)
+      // Update remaining mortgage balance (annual approximation)
       const annualMortgage = monthlyMortgage * 12;
       const annualInterest = remainingBalance * mortgageRate;
       const principalPaid = Math.max(0, annualMortgage - annualInterest);
@@ -172,11 +173,17 @@ export default function Home() {
 
     const verdict =
       diff > 0
-        ? `In this model (including investing), buying appears cheaper by $${money(diff)} over ${yMax} years.`
-        : `In this model (including investing), renting appears cheaper by $${money(Math.abs(diff))} over ${yMax} years.`;
+        ? `In this model (including investing), buying appears cheaper by $${money(
+            diff
+          )} over ${yMax} years.`
+        : `In this model (including investing), renting appears cheaper by $${money(
+            Math.abs(diff)
+          )} over ${yMax} years.`;
 
     const breakevenText =
-      breakEvenYear !== null ? `Estimated breakeven (net): year ${breakEvenYear}.` : `No breakeven within ${yMax} years.`;
+      breakEvenYear !== null
+        ? `Estimated breakeven (net): year ${breakEvenYear}.`
+        : `No breakeven within ${yMax} years.`;
 
     return {
       data,
@@ -202,11 +209,16 @@ export default function Home() {
   ]);
 
   const selected =
-    results.data.find((p) => p.year === selectedYear) ?? results.data[results.data.length - 1];
+    results.data.find((p) => p.year === selectedYear) ??
+    results.data[results.data.length - 1];
 
   const handleChartClick = (e: any) => {
     const yr = Number(e?.activeLabel);
-    if (!Number.isNaN(yr) && yr >= 1 && yr <= (results.data.at(-1)?.year ?? 1)) {
+    if (
+      !Number.isNaN(yr) &&
+      yr >= 1 &&
+      yr <= (results.data.at(-1)?.year ?? 1)
+    ) {
       setSelectedYear(yr);
     }
   };
@@ -214,8 +226,10 @@ export default function Home() {
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (!active || !payload?.length) return null;
 
-    const rentVal = payload.find((p: any) => p.dataKey === "rentNetCost")?.value ?? 0;
-    const buyVal = payload.find((p: any) => p.dataKey === "netBuyCost")?.value ?? 0;
+    const rentVal =
+      payload.find((p: any) => p.dataKey === "rentNetCost")?.value ?? 0;
+    const buyVal =
+      payload.find((p: any) => p.dataKey === "netBuyCost")?.value ?? 0;
 
     return (
       <div className="rounded-xl border bg-white px-4 py-3 shadow-sm">
@@ -253,208 +267,319 @@ export default function Home() {
   const final = results.data[results.data.length - 1];
   const finalDiff = final ? final.rentNetCost - final.netBuyCost : 0;
 
-return (
-  <main className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-rose-50 p-4 sm:p-6">
-    <div className="mx-auto max-w-7xl space-y-5">
-      {/* Top header */}
-      <div className="rounded-3xl border border-indigo-100 bg-white/80 backdrop-blur shadow-sm p-5 sm:p-6">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-indigo-700 to-rose-600 bg-clip-text text-transparent">
-              Rent vs Buy Calculator
-            </h1>
-            <p className="text-zinc-600 mt-1">
-              Includes <span className="font-medium text-indigo-700">investment opportunity cost</span> for renters.
-            </p>
-          </div>
+  return (
+    <main className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-rose-50 p-4 sm:p-6">
+      <div className="mx-auto max-w-7xl space-y-5">
+        {/* Top header */}
+        <div className="rounded-3xl border border-indigo-100 bg-white/80 backdrop-blur shadow-sm p-5 sm:p-6">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-indigo-700 to-rose-600 bg-clip-text text-transparent">
+                Rent vs Buy Calculator
+              </h1>
+              <p className="text-zinc-600 mt-1">
+                Includes{" "}
+                <span className="font-medium text-indigo-700">
+                  investment opportunity cost
+                </span>{" "}
+                for renters.
+              </p>
+            </div>
 
-          <div className="flex flex-wrap gap-2">
-            <Pill label="Mortgage (est)" value={`$${money(results.monthlyMortgage)}/mo`} />
-            <Pill label="Down payment" value={`$${money(results.downPayment)}`} />
-          </div>
-        </div>
-      </div>
-
-      {/* Main layout: left inputs + right chart/verdict */}
-      <div className="grid grid-cols-1 lg:grid-cols-[360px_1fr] gap-5">
-        {/* LEFT: Inputs (vertical column) */}
-        <aside className="rounded-3xl border border-indigo-100 bg-white/80 backdrop-blur shadow-sm p-5 sm:p-6">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-semibold text-zinc-900">Inputs</h2>
-            <span className="text-xs font-medium text-indigo-700 bg-indigo-50 border border-indigo-100 rounded-full px-3 py-1">
-              Assumptions
-            </span>
-          </div>
-
-          <div className="mt-4 space-y-4">
-            {/* Staying */}
-            <SectionTitle>Timeline</SectionTitle>
-            <Field label="Years staying" value={years} onChange={setYears} />
-
-            {/* Renting */}
-            <SectionTitle>Renting</SectionTitle>
-            <Field label="Monthly rent ($)" value={rentMonthly} onChange={setRentMonthly} />
-            <Field label="Rent increase (%/yr)" value={rentGrowthPct} onChange={setRentGrowthPct} step={0.1} />
-
-            {/* Buying */}
-            <SectionTitle>Buying</SectionTitle>
-            <Field label="Home price ($)" value={homePrice} onChange={setHomePrice} />
-            <Field label="Down payment (%)" value={downPct} onChange={setDownPct} step={0.1} />
-            <Field label="Mortgage rate (%/yr)" value={mortgageRatePct} onChange={setMortgageRatePct} step={0.1} />
-            <Field label="Amortization (years)" value={amortYears} onChange={setAmortYears} />
-
-            {/* Ownership + investing */}
-            <SectionTitle>Ownership & Investing</SectionTitle>
-            <Field label="Property tax (%/yr)" value={propertyTaxPct} onChange={setPropertyTaxPct} step={0.1} />
-            <Field label="Maintenance (%/yr)" value={maintenancePct} onChange={setMaintenancePct} step={0.1} />
-            <Field label="Home growth (%/yr)" value={homeGrowthPct} onChange={setHomeGrowthPct} step={0.1} />
-            <Field label="Selling costs (% of sale)" value={sellingCostPct} onChange={setSellingCostPct} step={0.1} />
-            <Field label="Investment return (%/yr)" value={investReturnPct} onChange={setInvestReturnPct} step={0.1} />
-
-            <div className="mt-2 rounded-2xl bg-indigo-50/70 border border-indigo-100 p-4 text-xs text-indigo-900/80 leading-relaxed">
-              <div className="font-semibold text-indigo-900 mb-1">How it’s computed</div>
-              Rent net cost = rent paid − renter portfolio. <br />
-              Buy net cost = buy cash outflows − equity (after selling costs).
+            <div className="flex flex-wrap gap-2">
+              <Pill
+                label="Mortgage (est)"
+                value={`$${money(results.monthlyMortgage)}/mo`}
+              />
+              <Pill label="Down payment" value={`$${money(results.downPayment)}`} />
             </div>
           </div>
-        </aside>
+        </div>
 
-        {/* RIGHT: Chart (top) + Verdict (under) */}
-        <section className="space-y-5">
-          {/* Chart card */}
-          <div className="rounded-3xl border border-indigo-100 bg-white/80 backdrop-blur shadow-sm p-5 sm:p-6">
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-              <div>
-                <h2 className="text-xl font-semibold text-zinc-900">Net cumulative cost over time</h2>
-                <p className="text-sm text-zinc-600 mt-1">
-                  Click the chart to lock a year.{" "}
-                  <span className="font-medium text-rose-600">Rent (net)</span> vs{" "}
-                  <span className="font-medium text-indigo-700">Buy (net)</span>.
-                </p>
-              </div>
-
-              <span className="inline-flex items-center gap-2 rounded-full border border-zinc-200 bg-white px-3 py-1 text-sm">
-                <span className="h-2 w-2 rounded-full bg-zinc-900" />
-                Selected year: <span className="font-semibold">{selected?.year ?? years}</span>
+        {/* Main layout: left inputs + right chart/verdict */}
+        <div className="grid grid-cols-1 lg:grid-cols-[360px_1fr] gap-5">
+          {/* LEFT: Inputs (vertical column) */}
+          <aside className="rounded-3xl border border-indigo-100 bg-white/80 backdrop-blur shadow-sm p-5 sm:p-6">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-semibold text-zinc-900">Inputs</h2>
+              <span className="text-xs font-medium text-indigo-700 bg-indigo-50 border border-indigo-100 rounded-full px-3 py-1">
+                Assumptions
               </span>
             </div>
 
-            <div className="mt-4 h-[360px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart
-                  data={results.data}
-                  onClick={handleChartClick}
-                  margin={{ top: 10, right: 20, left: 0, bottom: 0 }}
-                >
-                  <CartesianGrid strokeDasharray="4 4" />
-                  <XAxis dataKey="year" tickLine={false} axisLine={false} />
-                  <YAxis tickLine={false} axisLine={false} tickFormatter={(v) => `$${Math.round(v / 1000)}k`} />
-                  <Tooltip content={<CustomTooltip />} />
+            <div className="mt-4 space-y-4">
+              <SectionTitle>Timeline</SectionTitle>
+              <Field label="Years staying" value={years} onChange={setYears} />
 
-                  {results.breakEvenYear !== null && (
-                    <ReferenceLine
-                      x={results.breakEvenYear}
-                      stroke="#111827"
-                      strokeDasharray="6 6"
-                      label={{
-                        value: `Breakeven ~ yr ${results.breakEvenYear}`,
-                        position: "insideTopRight",
-                        fill: "#111827",
-                        fontSize: 12,
-                      }}
-                    />
-                  )}
+              <SectionTitle>Renting</SectionTitle>
+              <Field
+                label="Monthly rent ($)"
+                value={rentMonthly}
+                onChange={setRentMonthly}
+              />
+              <Field
+                label="Rent increase (%/yr)"
+                value={rentGrowthPct}
+                onChange={setRentGrowthPct}
+                step={0.1}
+              />
 
-                  {/* Rent net line */}
-                  <Line
-                    type="monotone"
-                    dataKey="rentNetCost"
-                    name="Rent (net)"
-                    stroke="#e11d48" // rose
-                    strokeWidth={3}
-                    dot={<ClickableDot />}
-                    activeDot={{ r: 7 }}
-                  />
+              <SectionTitle>Buying</SectionTitle>
+              <Field label="Home price ($)" value={homePrice} onChange={setHomePrice} />
+              <Field
+                label="Down payment (%)"
+                value={downPct}
+                onChange={setDownPct}
+                step={0.1}
+              />
+              <Field
+                label="Mortgage rate (%/yr)"
+                value={mortgageRatePct}
+                onChange={setMortgageRatePct}
+                step={0.1}
+              />
+              <Field label="Amortization (years)" value={amortYears} onChange={setAmortYears} />
 
-                  {/* Buy net line */}
-                  <Line
-                    type="monotone"
-                    dataKey="netBuyCost"
-                    name="Buy (net)"
-                    stroke="#4338ca" // indigo
-                    strokeWidth={3}
-                    dot={<ClickableDot />}
-                    activeDot={{ r: 7 }}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
+              <SectionTitle>Ownership & Investing</SectionTitle>
+              <Field
+                label="Property tax (%/yr)"
+                value={propertyTaxPct}
+                onChange={setPropertyTaxPct}
+                step={0.1}
+              />
+              <Field
+                label="Maintenance (%/yr)"
+                value={maintenancePct}
+                onChange={setMaintenancePct}
+                step={0.1}
+              />
+              <Field
+                label="Home growth (%/yr)"
+                value={homeGrowthPct}
+                onChange={setHomeGrowthPct}
+                step={0.1}
+              />
+              <Field
+                label="Selling costs (% of sale)"
+                value={sellingCostPct}
+                onChange={setSellingCostPct}
+                step={0.1}
+              />
+              <Field
+                label="Investment return (%/yr)"
+                value={investReturnPct}
+                onChange={setInvestReturnPct}
+                step={0.1}
+              />
+
+              <div className="mt-2 rounded-2xl bg-indigo-50/70 border border-indigo-100 p-4 text-xs text-indigo-900/80 leading-relaxed">
+                <div className="font-semibold text-indigo-900 mb-1">How it’s computed</div>
+                Rent net cost = rent paid − renter portfolio. <br />
+                Buy net cost = buy cash outflows − equity (after selling costs).
+              </div>
             </div>
+          </aside>
 
-            {/* Click details */}
-            <div className="mt-6 grid grid-cols-1 md:grid-cols-6 gap-4">
-              <Stat title={`Year ${selected?.year ?? years}`} value="Selected point" subtle />
-              <Stat title="Rent paid (cum)" value={`$${money(selected?.rentPaidCum ?? 0)}`} />
-              <Stat title="Renter portfolio" value={`$${money(selected?.renterPortfolio ?? 0)}`} />
-              <Stat title="Rent net cost" value={`$${money(selected?.rentNetCost ?? 0)}`} />
-              <Stat title="Buy cash outflow (cum)" value={`$${money(selected?.buyCashCum ?? 0)}`} />
-              <Stat title="Equity (est)" value={`$${money(selected?.equity ?? 0)}`} />
-              <Stat title="Buy net cost" value={`$${money(selected?.netBuyCost ?? 0)}`} />
+          {/* RIGHT: Chart (top) + Verdict (under) */}
+          <section className="space-y-5">
+            {/* Chart card */}
+            <div className="rounded-3xl border border-indigo-100 bg-white/80 backdrop-blur shadow-sm p-5 sm:p-6">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                  <h2 className="text-xl font-semibold text-zinc-900">
+                    Net cumulative cost over time
+                  </h2>
+                  <p className="text-sm text-zinc-600 mt-1">
+                    Click the chart to lock a year.{" "}
+                    <span className="font-medium text-rose-600">Rent (net)</span> vs{" "}
+                    <span className="font-medium text-indigo-700">Buy (net)</span>.
+                  </p>
+                </div>
 
-              <div className="md:col-span-6 rounded-2xl bg-zinc-50 border border-zinc-100 p-4 text-sm text-zinc-700">
-                <span className="font-semibold">At year {selected?.year ?? years}:</span>{" "}
-                Rent(net) − Buy(net) ={" "}
-                <span className="font-semibold">
-                  ${money(Math.abs((selected?.rentNetCost ?? 0) - (selected?.netBuyCost ?? 0)))}
-                </span>{" "}
-                <span className="text-zinc-600">
-                  {((selected?.rentNetCost ?? 0) - (selected?.netBuyCost ?? 0)) > 0
-                    ? "(buy wins by that year)"
-                    : "(rent wins by that year)"}
+                <span className="inline-flex items-center gap-2 rounded-full border border-zinc-200 bg-white px-3 py-1 text-sm">
+                  <span className="h-2 w-2 rounded-full bg-zinc-900" />
+                  Selected year:{" "}
+                  <span className="font-semibold">{selected?.year ?? years}</span>
                 </span>
               </div>
-            </div>
-          </div>
 
-          {/* Verdict card under chart */}
-          <div className="rounded-3xl border border-indigo-100 bg-white/80 backdrop-blur shadow-sm p-5 sm:p-6">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <h2 className="text-xl font-semibold text-zinc-900">Verdict</h2>
-                <p className="mt-2 text-lg font-semibold leading-relaxed text-zinc-900">
-                  {results.verdict}
-                </p>
-                <div className="mt-2 text-sm text-zinc-600">{results.breakevenText}</div>
+              <div className="mt-4 h-[360px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart
+                    data={results.data}
+                    onClick={handleChartClick}
+                    margin={{ top: 10, right: 20, left: 0, bottom: 0 }}
+                  >
+                    <CartesianGrid strokeDasharray="4 4" />
+                    <XAxis dataKey="year" tickLine={false} axisLine={false} />
+                    <YAxis
+                      tickLine={false}
+                      axisLine={false}
+                      tickFormatter={(v) => `$${Math.round(v / 1000)}k`}
+                    />
+                    <Tooltip content={<CustomTooltip />} />
+
+                    {results.breakEvenYear !== null && (
+                      <ReferenceLine
+                        x={results.breakEvenYear}
+                        stroke="#111827"
+                        strokeDasharray="6 6"
+                        label={{
+                          value: `Breakeven ~ yr ${results.breakEvenYear}`,
+                          position: "insideTopRight",
+                          fill: "#111827",
+                          fontSize: 12,
+                        }}
+                      />
+                    )}
+
+                    <Line
+                      type="monotone"
+                      dataKey="rentNetCost"
+                      name="Rent (net)"
+                      stroke="#e11d48"
+                      strokeWidth={3}
+                      dot={<ClickableDot />}
+                      activeDot={{ r: 7 }}
+                    />
+
+                    <Line
+                      type="monotone"
+                      dataKey="netBuyCost"
+                      name="Buy (net)"
+                      stroke="#4338ca"
+                      strokeWidth={3}
+                      dot={<ClickableDot />}
+                      activeDot={{ r: 7 }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
               </div>
 
-              <div className="hidden sm:block">
-                <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-indigo-600 to-rose-600 shadow-sm" />
+              {/* Click details */}
+              <div className="mt-6 grid grid-cols-1 md:grid-cols-6 gap-4">
+                <Stat title={`Year ${selected?.year ?? years}`} value="Selected point" subtle />
+
+                <Stat title="Rent paid (cum)" value={`$${money(selected?.rentPaidCum ?? 0)}`} />
+                <Stat title="Renter portfolio" value={`$${money(selected?.renterPortfolio ?? 0)}`} />
+                <Stat title="Rent net cost" value={`$${money(selected?.rentNetCost ?? 0)}`} />
+
+                <Stat title="Buy cash outflow (cum)" value={`$${money(selected?.buyCashCum ?? 0)}`} />
+                <Stat title="Equity (est)" value={`$${money(selected?.equity ?? 0)}`} />
+                <Stat title="Buy net cost" value={`$${money(selected?.netBuyCost ?? 0)}`} />
+
+                <div className="md:col-span-6 rounded-2xl bg-zinc-50 border border-zinc-100 p-4 text-sm text-zinc-700">
+                  <span className="font-semibold">At year {selected?.year ?? years}:</span>{" "}
+                  Rent(net) − Buy(net) ={" "}
+                  <span className="font-semibold">
+                    $
+                    {money(
+                      Math.abs(
+                        (selected?.rentNetCost ?? 0) - (selected?.netBuyCost ?? 0)
+                      )
+                    )}
+                  </span>{" "}
+                  <span className="text-zinc-600">
+                    {(selected?.rentNetCost ?? 0) - (selected?.netBuyCost ?? 0) > 0
+                      ? "(buy wins by that year)"
+                      : "(rent wins by that year)"}
+                  </span>
+                </div>
               </div>
             </div>
 
-            <div className="mt-5 grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <MiniStat label="Final rent net cost" value={`$${money(final?.rentNetCost ?? 0)}`} tone="rose" />
-              <MiniStat label="Final buy net cost" value={`$${money(final?.netBuyCost ?? 0)}`} tone="indigo" />
-              <MiniStat
-                label="Difference (rent − buy)"
-                value={`$${money(Math.abs(finalDiff))} ${finalDiff > 0 ? "(buy wins)" : "(rent wins)"}`}
-                tone={finalDiff > 0 ? "indigo" : "rose"}
-              />
+            {/* Verdict card under chart */}
+            <div className="rounded-3xl border border-indigo-100 bg-white/80 backdrop-blur shadow-sm p-5 sm:p-6">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h2 className="text-xl font-semibold text-zinc-900">Verdict</h2>
+                  <p className="mt-2 text-lg font-semibold leading-relaxed text-zinc-900">
+                    {results.verdict}
+                  </p>
+                  <div className="mt-2 text-sm text-zinc-600">{results.breakevenText}</div>
+                </div>
+
+                <div className="hidden sm:block">
+                  <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-indigo-600 to-rose-600 shadow-sm" />
+                </div>
+              </div>
+
+              <div className="mt-5 grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <MiniStat
+                  label="Final rent net cost"
+                  value={`$${money(final?.rentNetCost ?? 0)}`}
+                  tone="rose"
+                />
+                <MiniStat
+                  label="Final buy net cost"
+                  value={`$${money(final?.netBuyCost ?? 0)}`}
+                  tone="indigo"
+                />
+                <MiniStat
+                  label="Difference (rent − buy)"
+                  value={`$${money(Math.abs(finalDiff))} ${
+                    finalDiff > 0 ? "(buy wins)" : "(rent wins)"
+                  }`}
+                  tone={finalDiff > 0 ? "indigo" : "rose"}
+                />
+              </div>
+
+              <div className="mt-4 text-xs text-zinc-500">
+                Tip: “Investment return” and “Home growth” swing results the most.
+              </div>
             </div>
 
-            <div className="mt-4 text-xs text-zinc-500">
-              Tip: “Investment return” and “Home growth” swing results the most.
-            </div>
-          </div>
-
-          <p className="text-xs text-zinc-500 text-center pb-2">
-            Educational estimates only. Small changes in assumptions can flip results.
-          </p>
-        </section>
+            <p className="text-xs text-zinc-500 text-center pb-2">
+              Educational estimates only. Small changes in assumptions can flip results.
+            </p>
+          </section>
+        </div>
       </div>
-    </div>
-  </main>
-);
+    </main>
+  );
+}
 
+function SectionTitle({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="pt-2">
+      <div className="text-xs font-semibold tracking-wide text-indigo-700 uppercase">
+        {children}
+      </div>
+      <div className="mt-2 h-px w-full bg-gradient-to-r from-indigo-200 via-zinc-100 to-rose-200" />
+    </div>
+  );
+}
+
+function Pill({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl border border-zinc-200 bg-white px-4 py-2 shadow-sm">
+      <div className="text-[11px] text-zinc-500">{label}</div>
+      <div className="text-sm font-semibold text-zinc-900">{value}</div>
+    </div>
+  );
+}
+
+function MiniStat({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: string;
+  tone: "indigo" | "rose";
+}) {
+  const toneClasses =
+    tone === "indigo"
+      ? "border-indigo-100 bg-indigo-50/60 text-indigo-900"
+      : "border-rose-100 bg-rose-50/60 text-rose-900";
+
+  return (
+    <div className={`rounded-2xl border p-4 ${toneClasses}`}>
+      <div className="text-xs opacity-80">{label}</div>
+      <div className="mt-1 text-sm font-semibold">{value}</div>
+    </div>
+  );
+}
 
 function Field({
   label,
@@ -475,7 +600,7 @@ function Field({
         value={Number.isFinite(value) ? value : 0}
         onChange={(e) => onChange(Number(e.target.value))}
         step={step ?? 1}
-        className="w-full rounded-xl border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-zinc-900/10"
+        className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300"
       />
     </div>
   );
