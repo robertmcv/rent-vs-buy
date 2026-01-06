@@ -147,13 +147,12 @@ export default function Home() {
         // Grow renter portfolio, then add contribution
         renterPortfolio =
           renterPortfolio * (1 + investMonthly) + investContribution;
+
+        value *= 1 + homeGrowth / 12;   
       }
 
       rentPaidCum += rentPaidThisYear;
       buyCashCum += buyCashThisYear;
-
-      // End-of-year home value growth
-      value *= 1 + homeGrowth;
 
       // Equity if sold end of year
       const netSaleProceeds = value * (1 - sellCost) - remainingBalance;
